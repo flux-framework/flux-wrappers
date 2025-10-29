@@ -41,6 +41,7 @@ usage() if ($help_opt);
 my $hasMpibind = checkForMpibind();
 
 my $fluxversion = getFluxVer();
+my $fluxlevel = `/bin/flux getattr instance-level`;
 
 my $fluxcmd = 'flux';
 my $fluxpcmd = 'flux --parent';
@@ -193,7 +194,7 @@ if ($flux_debug_opt) {
 #}
 
 if ($exclusive_opt) {
-    if( !$cpus_per_task_opt and !$gpus_per_task_opt ){
+    if( !$cpus_per_task_opt and !$gpus_per_task_opt and $fluxlevel > 0 ){
         push @OPTIONS, "--exclusive ";
     }
 }
@@ -378,7 +379,9 @@ if( $0 =~ /salloc$/ ){
 }else{
     if( !$cpus_per_task_opt and !$gpus_per_task_opt and
         !$ntasks_per_core_opt and !$ntasks_per_node_opt ){
-        push @OPTIONS, "--exclusive ";
+        if( $fluxlevel > 0 ){
+            push @OPTIONS, "--exclusive ";
+        }
         if( !$nodes_opt ){
             if( $jobid_opt ){   # flux proxy job
                 $nodes_opt = `flux jobs -n -o '{nnodes}' $jobid_opt`;
@@ -389,13 +392,15 @@ if( $0 =~ /salloc$/ ){
                 $nodes_opt = `flux resource list -n -o '{nnodes}'`;
                 chomp $nodes_opt;
             }else{   # outside of a flux job
-                $nodes_opt = $ntasks_opt || 1;
+                $nodes_opt = "";
             }
             unless( $ntasks_opt ){
                 $ntasks_opt = $nodes_opt;
             }
-            $nodes_opt = min($ntasks_opt, $nodes_opt);
-            push @OPTIONS, "--nodes=$nodes_opt ";
+            if( $nodes_opt ){
+                $nodes_opt = min($ntasks_opt, $nodes_opt);
+                push @OPTIONS, "--nodes=$nodes_opt ";
+            }
         }
     }
     if( $0 =~ /srun$/ ){
