@@ -126,10 +126,11 @@ def main(parsedargs) :
     # get job list and sort it
     myhandle = flux.Flux()
     if args.jobid == None :
-        mylist = fjob.JobList(myhandle,user=user)
+        # cap this at 10000 to keep the time to run the command <30s
+        mylist = fjob.JobList(myhandle,user=user,max_entries=10000)
     else :
         decid = fjob.id_parse(args.jobid)
-        mylist = fjob.JobList(myhandle,user=user,ids=[decid])
+        mylist = fjob.JobList(myhandle,user=user,ids=[decid],max_entries=0)
     donejobs = [j for j in mylist.jobs() if j.state_single == "I"]
     pendjobs = [j for j in mylist.jobs() if j.state_single in {"P", "S"}]
     runjobs = [j for j in mylist.jobs() if j.state_single in {"R", "C"}]
