@@ -71,6 +71,8 @@ class SlurmFormatter:
             "%": "",
             "%a": "USERNAME",
             "%i": "JOBID",
+            "%F": "JOBID",
+            "%K": "ARRAYID",
             "%P": "PARTITION",
             "%j": "NAME",
             "%u": "USER",
@@ -94,6 +96,8 @@ class SlurmFormatter:
             "%": "",
             "%a": job.username,
             "%i": job.id.f58,
+            "%F": job.id.f58,
+            "%K": "0",
             "%P": job.queue,
             "%j": job.name,
             "%u": job.username,
@@ -206,7 +210,7 @@ def main(parsedargs):
         logging.debug(disclaimer())
 
     # Setup the flux command variable to track added options to fsqueue
-    flux_command = "flux jobs"
+    flux_command = "flux jobs -c 0"
 
     # Set user if explicitly specified.
     user = "all"
@@ -275,7 +279,7 @@ def main(parsedargs):
     # the search will be limited to the jobs specified. Otherwise flux will
     # return a full list of all jobs matching the other filters we've specified.
     rpc = flux.job.JobList(
-        conn, user=user, ids=job_ids, queue=queue, name=job_name, filters=job_states
+        conn, user=user, ids=job_ids, queue=queue, name=job_name, filters=job_states, max_entries=0
     ).fetch_jobs()
     jobs = list(rpc.get_jobinfos())
 
