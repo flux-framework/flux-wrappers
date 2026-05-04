@@ -9,7 +9,7 @@ sub print_usage(){
     print " Options:\n";
     print "  -R              display information about drained nodes\n";
     print "  -h|--noheader   do not print a header line\n";
-    print "  -v|--verbose    show underlying flux command";
+    print "  -v|--verbose    show underlying flux command\n";
     exit 1;
 }
 
