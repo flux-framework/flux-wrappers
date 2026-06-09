@@ -16,6 +16,8 @@ Requires: flux-core
 Conflicts: slurm
 
 ######################################################################
+%global debug_package %{nil}
+
 %prep
 
 %setup -n %{name}-%{version}
@@ -33,7 +35,6 @@ equivalent Flux commands.
 rm -rf "$RPM_BUILD_ROOT"
 mkdir -p $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT%{_bindir}
-#mkdir -p $RPM_BUILD_ROOT%{_mandir}/man1
 install src/slurm2flux.pl $RPM_BUILD_ROOT%{_bindir}/slurm2flux
 install src/fsqueue.py $RPM_BUILD_ROOT%{_bindir}/squeue
 install src/fshowq.py $RPM_BUILD_ROOT%{_bindir}/showq
@@ -62,7 +63,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_bindir}/sbatch
 %{_bindir}/salloc
 
-#%{_mandir}/man1/*
+
 	
 
 ##
