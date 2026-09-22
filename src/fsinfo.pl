@@ -4,11 +4,12 @@ use warnings;
 use strict;
 
 sub print_usage(){
-    print "Usage: $0 [-R] [-h|--noheader]\n";
+    print "Usage: $0 [-R] [-h|--noheader] [-s|--summarize]\n";
     print " Display information about resource status.\n\n";
     print " Options:\n";
     print "  -R              display information about drained nodes\n";
     print "  -h|--noheader   do not print a header line\n";
+    print "  -s|--summarize  display summary information\n";
     print "  -v|--verbose    show underlying flux command\n";
     exit 1;
 }
@@ -19,6 +20,17 @@ sub print_warn($){
     print "Warning: $0 is a wrapper script and does not have all Slurm options implemented.\n";
     print "'$eargs' were ignored.\n";
     print "See '$0 --help' for supported options.\n\n";
+}
+
+sub categorize_state {
+    my ($state) = @_;
+    if( $state =~ /^(alloc|mix|comp|resv)$/ ){
+        return 'A';
+    }elsif( $state eq 'idle' ){
+        return 'I';
+    }else{
+        return 'O';
+    }
 }
 
 sub run_drain{
@@ -86,8 +98,13 @@ sub run_list{
         print "#running : flux resource list\n";
     }
     if( $params{header} ){
-        print "PARTITION AVAIL  TIMELIMIT  NODES  STATE NODELIST\n";
+        if( $params{summarize} ){
+            print "PARTITION AVAIL  TIMELIMIT   NODES(A/I/O/T) NODELIST\n";
+        }else{
+            print "PARTITION AVAIL  TIMELIMIT  NODES  STATE NODELIST\n";
+        }
     }
+    my %summary = ();
     <CMD>;
     while( <CMD> ){
         my( $queuestr, $nnodes, $state, $nodelist );
@@ -102,16 +119,45 @@ sub run_list{
         }elsif( $state =~ /alloc/ ){
             $state = 'alloc';
         }
-        foreach my $queue ( split /,/, $queuestr ){
-            if( defined $avail{$queue} ){
-                push @{ $line{$queue} }, sprintf( "%-10s %4s %10s   %4d %6.6s %s\n", $queue, $avail{$queue}, $timelimit{$queue}, $nnodes, $state, $nodelist );
+        if( $params{summarize} ){
+            my $category = categorize_state( $state );
+            foreach my $queue ( split /,/, $queuestr ){
+                if( defined $avail{$queue} ){
+                    $summary{$queue}{total_count} += $nnodes;
+                    if( $category eq 'A' ){
+                        $summary{$queue}{alloc_count} += $nnodes;
+                    }elsif( $category eq 'I' ){
+                        $summary{$queue}{idle_count} += $nnodes;
+                    }elsif( $category eq 'O' ){
+                        $summary{$queue}{other_count} += $nnodes;
+                    }
+                    push @{ $summary{$queue}{nodelists} }, $nodelist;
+                }
+            }
+        }else{
+            foreach my $queue ( split /,/, $queuestr ){
+                if( defined $avail{$queue} ){
+                    push @{ $line{$queue} }, sprintf( "%-10s %4s %10s   %4d %6.6s %s\n", $queue, $avail{$queue}, $timelimit{$queue}, $nnodes, $state, $nodelist );
+                }
             }
         }
     }
     close CMD;
-    foreach my $q ( sort {$a cmp $b} keys %line ){
-        foreach my $l ( @{ $line{$q} } ){
-            print "$l";
+    if( $params{summarize} ){
+        foreach my $q ( sort {$a cmp $b} keys %summary ){
+            my $s = $summary{$q};
+            my $alloc = $s->{alloc_count} || 0;
+            my $idle = $s->{idle_count} || 0;
+            my $other = $s->{other_count} || 0;
+            my $total = $s->{total_count} || 0;
+            my $nodelist = join(',', @{$s->{nodelists}});
+            printf( "%-10s %4s %10s %6d/%d/%d/%d %s\n", $q, $avail{$q}, $timelimit{$q}, $alloc, $idle, $other, $total, $nodelist );
+        }
+    }else{
+        foreach my $q ( sort {$a cmp $b} keys %line ){
+            foreach my $l ( @{ $line{$q} } ){
+                print "$l";
+            }
         }
     }
 }
@@ -121,6 +167,7 @@ sub run_list{
 my $drain = '';
 my $header = 1;
 my $verbose = 0;
+my $summarize = 0;
 my $extraargs = '';
 foreach my $arg (@ARGV) {
     if( $arg eq '-R' ){
@@ -129,6 +176,8 @@ foreach my $arg (@ARGV) {
         $header = 0;
     }elsif( $arg eq '-v' or $arg eq '--verbose' ){
         $verbose = 1;
+    }elsif( $arg eq '-s' or $arg eq '--summarize' ){
+        $summarize = 1;
     }elsif( $arg eq '--help' ){
         print_usage;
     }else{
@@ -147,5 +196,6 @@ if( $drain ){
 }else{
     run_list(
         header => $header,
-        verbose => $verbose);
+        verbose => $verbose,
+        summarize => $summarize);
 }
